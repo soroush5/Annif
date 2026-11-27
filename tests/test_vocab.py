@@ -68,6 +68,34 @@ def test_update_subject_index_with_removed_subject(tmpdir):
     assert vocab.subjects.by_uri("http://example.org/none") is None
 
 
+def test_update_subject_index_with_removed_subject_keeps_later_subjects(tmpdir):
+    vocab = load_dummy_vocab(tmpdir)
+
+    # remove the first subject, keep the second and add a new one after it
+    voctmp_new = tmpdir.join("subjects_new.tsv")
+    voctmp_new.write(
+        "<http://example.org/none>\tnone\t42.42\n"
+        + "<http://example.org/new-dummy>\tnew dummy\n"
+    )
+    vocab_file_new = annif.vocab.VocabFileTSV(str(voctmp_new), "en")
+    vocab.load_vocabulary(vocab_file_new)
+
+    # load the saved subject index again, as a new process would
+    reloaded = annif.vocab.AnnifVocabulary("vocab-id", str(tmpdir))
+    assert len(reloaded.subjects) == 3
+    assert reloaded.subjects.by_uri("http://example.org/dummy") is None
+    assert reloaded.subjects.by_uri("http://example.org/none") == 1
+    assert reloaded.subjects[1].labels["en"] == "none"
+    assert reloaded.subjects.by_uri("http://example.org/new-dummy") == 2
+    assert reloaded.subjects[2].labels["en"] == "new dummy"
+
+    # updating again with the same file keeps the same subject IDs
+    reloaded.load_vocabulary(vocab_file_new)
+    assert len(reloaded.subjects) == 3
+    assert reloaded.subjects.by_uri("http://example.org/none") == 1
+    assert reloaded.subjects.by_uri("http://example.org/new-dummy") == 2
+
+
 def test_update_subject_index_with_renamed_label_and_added_notation(tmpdir):
     vocab = load_dummy_vocab(tmpdir)
 
